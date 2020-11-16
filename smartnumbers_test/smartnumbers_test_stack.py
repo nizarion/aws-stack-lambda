@@ -85,7 +85,7 @@ class SmartnumbersTestStack(core.Stack):
 
         apigateway_integration_input = apigw.LambdaIntegration(matcher_call_operator_lambda)
         apigateway_endpoint_trigger = api_endpoint.root.add_resource('event_trigger')
-        apigateway_endpoint_trigger.add_method('PUT', apigateway_integration_input)
+        apigateway_endpoint_trigger.add_method('POST', apigateway_integration_input)
 
 
 

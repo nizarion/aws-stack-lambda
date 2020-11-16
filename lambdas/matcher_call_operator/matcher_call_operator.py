@@ -1,22 +1,20 @@
 import boto3
 import json
 import logging
-import os
-from boto3.dynamodb.conditions import Key
 from decimal import Decimal
-from datetime import date, datetime
-import math
+from datetime import datetime
 import csv
 
 # set up nice logging in CloudWatch
 LOGGER = logging.getLogger()
 LOGGER.setLevel(logging.INFO)
 
+# set up dynamodb 
 DYNAMO_DB = boto3.resource('dynamodb')
 CALLS_TABLE = DYNAMO_DB.Table('infra-smartnumbers-calls')
 OPERATORS_TABLE = DYNAMO_DB.Table('infra-smartnumbers-operators')
 
-
+# set up s3 
 S3 = boto3.resource('s3')
 OUTPUT_BUCKET_NAME = 'infra-smartnumbers-output-bucket'
 OUTPUT_BUCKET = S3.Bucket(OUTPUT_BUCKET_NAME)
@@ -38,7 +36,7 @@ def handler(event, context):
 
     operation = event['httpMethod']
 
-    if operation == 'PUT':
+    if operation == 'POST':
         return match_calls_with_operator(event)
     else:
         return respond(ValueError('Unsupported method "{}"'.format(operation)))
@@ -53,22 +51,19 @@ def match_calls_with_operator(event):
             'error': 'Event is not supported.'
         }
 
+    # should be done in batches for production
     calls = get_all_items(CALLS_TABLE)
     operators = get_all_items(OPERATORS_TABLE)
     matched_calls = []
 
+    # sort by date
+    calls.sort(reverse=False, key=lambda c: datetime.strptime(get_date_from_datetime(c['date']), "%Y-%m-%d")) 
+
     for call in calls:
         call_id = call['id']
         call_date = get_date_from_datetime(call['date'])
-
         call_number = call['number']
-
-        if call_number == 'Withheld':
-            pass
-
-        call_prefix = call_number[3]
-        call_operator = match_operator(operators, call_prefix)
-
+        call_operator = get_operator(call_number, operators)
         call_riskScore = calculate_riskScore(call)
 
         matched_calls.append(
@@ -85,7 +80,8 @@ def match_calls_with_operator(event):
             'error': e
         }
 
-    LOGGER.info("ITEM received: " + json.dumps(matched_calls, default=decimal_default))
+    LOGGER.info("ITEM received: " +
+                json.dumps(matched_calls, default=decimal_default))
 
     return {
         'statusCode': '200',
@@ -108,20 +104,26 @@ def get_date_from_datetime(date_time):
     return date_time.split("T")[0]
 
 
+def get_operator(call_number, operators):
+    if call_number == 'Withheld':
+        return 'Unknown'
+    call_prefix = call_number[3]
+    return match_operator(operators, call_prefix)
+
+
 def create_store_csv(item_list):
     # dd/mm/YYTH:M:S
     dt_string = datetime.now().strftime("%d/%m/%YT%H:%M:%S")
 
-    file_name = dt_string + '.csv'
-    file_name = '/tmp/hello.csv'
+    # file_name = '/tmp/' + dt_string + '.csv'
+    file_name = '/tmp/output.csv'
 
     with open(file_name, 'w', newline='') as csvfile:
         writer = csv.writer(csvfile, delimiter=',')
-        # quotechar='|', quoting=csv.QUOTE_MINIMAL)
         for item in item_list:
             writer.writerow(item)
 
-    key = '/tmp/' + 'hello.csv'
+    key = '/tmp/' + 'output.csv'
     OUTPUT_BUCKET.upload_file(file_name, key)
 
 
