@@ -26,3 +26,5 @@ While ingesting the data the part that was harder was the ingesting the float, s
 For the prefix it was assumed that only the first digit after the country code is important. This is purely based on the examples and does not include more complex prefixes (e.g. 2300 could mean that calls with 2300-2399 belong to this operator)
 
 output.csv could have a datetime stamp on it so multiple reports exist in the bucket
+
+I have added output.csv in the zip folder for your convenience. 
