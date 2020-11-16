@@ -123,7 +123,7 @@ def create_store_csv(item_list):
         for item in item_list:
             writer.writerow(item)
 
-    key = '/tmp/' + 'output.csv'
+    key = file_name
     OUTPUT_BUCKET.upload_file(file_name, key)
 
 
