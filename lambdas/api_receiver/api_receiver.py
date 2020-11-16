@@ -30,8 +30,6 @@ def handler(event, context):
 
     operation = event['httpMethod']
 
-    # if operation == 'GET':
-    #     return event_receiver_GET(event)
     if operation == 'POST':
         return event_receiver_POST(event)
     else:
@@ -40,6 +38,7 @@ def handler(event, context):
 
 def process_call_event(data_item):
     attributes = data_item.get('attributes')
+    
     id: str = data_item['id']
     date: str = attributes['date']
     riskScore  = Decimal(str(attributes['riskScore']))

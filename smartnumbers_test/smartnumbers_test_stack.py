@@ -20,7 +20,17 @@ class SmartnumbersTestStack(core.Stack):
         self.root_dir = str(Path(__file__).parents[1])
         print(self.root_dir)
         self.log_retention = aws_logs.RetentionDays.ONE_WEEK
+        
+        # ////////////////////////////////////////////////////////////////////////////////////////////
+        """ S3 Buckets """
 
+        # output bucket
+        bucket_name = self.prefix + '-output-bucket'
+        output_bucket = s3.Bucket(self, bucket_name,
+                                bucket_name=bucket_name,
+                                removal_policy=core.RemovalPolicy.DESTROY
+                                )
+                                
         # ////////////////////////////////////////////////////////////////////////////////////////////
         """ Dynamo Tables """
         self.tables = []
@@ -56,6 +66,12 @@ class SmartnumbersTestStack(core.Stack):
         calls_table.grant_read_write_data(api_receiver_lambda)
         operators_table.grant_read_write_data(api_receiver_lambda)
 
+        matcher_call_operator_lambda = create_lambda(self, 'matcher_call_operator')
+        self.lambdas.append(matcher_call_operator_lambda)
+        calls_table.grant_read_write_data(matcher_call_operator_lambda)
+        operators_table.grant_read_data(matcher_call_operator_lambda)
+        output_bucket.grant_read_write(matcher_call_operator_lambda)
+
         # ////////////////////////////////////////////////////////////////////////////////////////////
         """ API Gateways """
 
@@ -63,9 +79,13 @@ class SmartnumbersTestStack(core.Stack):
                                            handler=api_receiver_lambda,
                                            proxy=False)
 
-        apigateway_integration = apigw.LambdaIntegration(api_receiver_lambda)
-        apigateway_endpoint = api_endpoint.root.add_resource('input_data')
-        apigateway_endpoint.add_method('POST', apigateway_integration)
+        apigateway_integration_input = apigw.LambdaIntegration(api_receiver_lambda)
+        apigateway_endpoint_input = api_endpoint.root.add_resource('input_data')
+        apigateway_endpoint_input.add_method('POST', apigateway_integration_input)
+
+        apigateway_integration_input = apigw.LambdaIntegration(matcher_call_operator_lambda)
+        apigateway_endpoint_trigger = api_endpoint.root.add_resource('event_trigger')
+        apigateway_endpoint_trigger.add_method('PUT', apigateway_integration_input)
 
 
 
